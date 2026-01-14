@@ -4,6 +4,12 @@ Provide automatic Register and Login for Offline servers. Also support premium a
 
 
 
+Based upon : https://fabricmc.net/develop/template/
+
+Using official Mojang mappings
+
+
+
 ## Versions
 
 * "fabricloader": ">=0.18.4",

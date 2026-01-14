@@ -26,7 +26,7 @@ Using official Mojang mappings
 * Download VS Code
 * Add extensions: Java, Extension Pack For Java
 * MAJ+CTRL+P => Clean Java Language
-* Install Java 21 LTS SDK from JDK Donwloader
+* Install Java 21 LTS SDK and flush javahome
 
 
 

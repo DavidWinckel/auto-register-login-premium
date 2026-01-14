@@ -5,11 +5,12 @@ import com.google.gson.JsonParser;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
-
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.User;
 import net.minecraft.network.chat.Component;
 import net.minecraft.ChatFormatting;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -19,89 +20,67 @@ import java.util.UUID;
 
 public class AutoRegisterLoginPremiumClient implements ClientModInitializer {
 
+    // Initialisation du Logger
+    public static final Logger LOGGER = LoggerFactory.getLogger("AutoAuthPremium");
+
     private String currentPassword;
     private boolean authSent;
 
     @Override
     public void onInitializeClient() {
+        LOGGER.info("AutoRegisterLoginPremium initialisé !");
 
-        // Lors de la connexion à un serveur
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
             if (handler.getServerData() == null) return;
 
-            String ip = handler.getServerData().ip
-                    .replace(":", "_")
-                    .replace("/", "_");
+            String rawIp = handler.getServerData().ip;
+            String ip = rawIp.replace(":", "_").replace("/", "_");
 
+            LOGGER.info("Connexion au serveur : {}", rawIp);
             currentPassword = getOrCreatePassword(ip);
             authSent = false;
         });
 
-        // Lecture des messages serveur
         ClientReceiveMessageEvents.GAME.register((message, overlay) -> {
             Minecraft mc = Minecraft.getInstance();
             if (mc.player == null || authSent) return;
 
             String text = message.getString().toLowerCase();
 
-            // Serveur demande /premium
-            if (text.contains("/premium")
-                    && mc.getUser().getType() == User.Type.MSA) {
-
-                sendCommand(mc, "premium",
-                        "[AutoAuth] Passage en premium",
-                        ChatFormatting.GOLD);
-
-                new Thread(() -> {
-                try {
-                        Thread.sleep(2000); // délai de 2 secondes
-                        mc.execute(() -> {
-                            if (mc.player != null) {
-                                mc.player.connection.sendCommand("premium");
-                                mc.player.displayClientMessage(
-                                    Component.literal("[AutoAuth] Passage en premium (2/2)").withStyle(ChatFormatting.GOLD),
-                                    true
-                                );
-                            }
-                        });
-                    } catch (InterruptedException ignored) {}
-                }).start();
+            // Détection du register & je suis premium
+            if (text.contains("/register") && mc.getUser().getType() == User.Type.MSA) {
+                LOGGER.info("Détection d'une demande de passage en premium.");
+                sendCommand(mc, "premium", "[AutoAuth] Passage en premium", ChatFormatting.GOLD, 1500);
+                sendCommand(mc, "premium", "[AutoAuth] Passage en premium (2/2)", ChatFormatting.GOLD, 4000);
+            } 
+            // Détection du register & je ne suis pas premium
+            else if (text.contains("/register") && mc.getUser().getType() != User.Type.MSA) {
+                LOGGER.info("Détection d'une demande d'enregistrement. Génération/Récupération du mot de passe.");
+                sendCommand(mc, "register " + currentPassword + " " + currentPassword, "[AutoAuth] Enregistrement automatique", ChatFormatting.AQUA, 1500);
+                sendCommand(mc, "login " + currentPassword, "[AutoAuth] Connexion automatique", ChatFormatting.GREEN, 4000);
             }
-
-            // Serveur demande /login
+            // Détection du login
             else if (text.contains("/login")) {
-                sendCommand(mc,
-                        "login " + currentPassword,
-                        "[AutoAuth] Connexion automatique",
-                        ChatFormatting.GREEN);
-            }
-
-            // Serveur demande /register
-            else if (text.contains("/register")) {
-                sendCommand(mc,
-                        "register " + currentPassword + " " + currentPassword,
-                        "[AutoAuth] Enregistrement automatique",
-                        ChatFormatting.AQUA);
-            }
+                LOGGER.info("Détection d'une demande de login. Envoi du mot de passe stocké.");
+                sendCommand(mc, "login " + currentPassword, "[AutoAuth] Connexion automatique", ChatFormatting.GREEN, 1500);
+            } 
+            
         });
     }
 
-    private void sendCommand(Minecraft mc, String command, String feedback, ChatFormatting color) {
-        authSent = true;
-
+    private void sendCommand(Minecraft mc, String command, String feedback, ChatFormatting color, int delay) {
         new Thread(() -> {
             try {
-                Thread.sleep(1500); // anti-spam
+                Thread.sleep(delay);
                 mc.execute(() -> {
                     if (mc.player != null) {
                         mc.player.connection.sendCommand(command);
-                        mc.player.displayClientMessage(
-							Component.literal(feedback).withStyle(color),
-							true
-						);
+                        mc.player.displayClientMessage(Component.literal(feedback).withStyle(color), true);
+                        LOGGER.debug("Commande envoyée : /{}", command);
                     }
                 });
-            } catch (InterruptedException ignored) {
+            } catch (InterruptedException e) {
+                LOGGER.error("Le délai de la commande a été interrompu", e);
             }
         }).start();
     }
@@ -112,26 +91,23 @@ public class AutoRegisterLoginPremiumClient implements ClientModInitializer {
         try {
             if (Files.exists(file)) {
                 String json = Files.readString(file);
-                return JsonParser.parseString(json)
-                        .getAsJsonObject()
-                        .get("password")
-                        .getAsString();
+                String pass = JsonParser.parseString(json).getAsJsonObject().get("password").getAsString();
+                LOGGER.info("Mot de passe chargé depuis le fichier pour l'IP : {}", ip);
+                return pass;
             }
 
             Files.createDirectories(file.getParent());
-
-            String password = UUID.randomUUID()
-                    .toString()
-                    .replace("-", "")
-                    .substring(0, 10);
-
+            String password = UUID.randomUUID().toString().replace("-", "").substring(0, 10);
+            
             JsonObject obj = new JsonObject();
             obj.addProperty("password", password);
-
             Files.writeString(file, obj.toString());
+
+            LOGGER.info("Nouveau mot de passe généré et sauvegardé pour : {}", ip);
             return password;
 
         } catch (IOException e) {
+            LOGGER.error("Erreur lors de la lecture/écriture du fichier de configuration pour {}", ip, e);
             return "Pass12345";
         }
     }

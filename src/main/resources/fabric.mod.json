@@ -1,0 +1,27 @@
+{
+	"schemaVersion": 1,
+	"id": "auto-register-login-premium",
+	"version": "1.0.0",
+	"name": "Auto Register Login Premium",
+	"description": "Provide automatic Register and Login for Offline servers. Also support premium account automatic switch.",
+	"authors": [
+		"David Winckel"
+	],
+	"license": "CC0-1.0",
+	"icon": "assets/auto-register-login-premium/icon.png",
+	"environment": "*",
+	"entrypoints": {
+        "main": [
+            "com.autoregisterloginpremium.AutoRegisterLoginPremium"
+        ],
+        "client": [
+            "com.autoregisterloginpremium.AutoRegisterLoginPremiumClient"
+        ]
+    },
+	"depends": {
+		"fabricloader": ">=0.18.4",
+		"minecraft": "~1.21.8",
+		"java": ">=21",
+		"fabric-api": "*"
+	}
+}

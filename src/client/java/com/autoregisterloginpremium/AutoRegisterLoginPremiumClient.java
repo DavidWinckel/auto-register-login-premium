@@ -1,22 +1,24 @@
 package com.autoregisterloginpremium;
 
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-import net.fabricmc.api.ClientModInitializer;
-import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.User;
-import net.minecraft.network.chat.Component;
-import net.minecraft.ChatFormatting;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.UUID;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.User;
+import net.minecraft.network.chat.Component;
 
 public class AutoRegisterLoginPremiumClient implements ClientModInitializer {
 
@@ -48,21 +50,22 @@ public class AutoRegisterLoginPremiumClient implements ClientModInitializer {
             String text = message.getString().toLowerCase();
 
             // Détection du register & je suis premium
-            if (text.contains("/register") && mc.getUser().getType() == User.Type.MSA) {
-                LOGGER.info("Détection d'une demande de passage en premium.");
-                sendCommand(mc, "premium", "[AutoAuth] Passage en premium", ChatFormatting.GOLD, 1500);
-                sendCommand(mc, "premium", "[AutoAuth] Passage en premium (2/2)", ChatFormatting.GOLD, 4000);
-            } 
-            // Détection du register & je ne suis pas premium
-            else if (text.contains("/register") && mc.getUser().getType() != User.Type.MSA) {
-                LOGGER.info("Détection d'une demande d'enregistrement. Génération/Récupération du mot de passe.");
+            if (text.contains("/register")) {
+                LOGGER.info("Détection d'une demande d'enregistrement.");
                 sendCommand(mc, "register " + currentPassword + " " + currentPassword, "[AutoAuth] Enregistrement automatique", ChatFormatting.AQUA, 1500);
-                sendCommand(mc, "login " + currentPassword, "[AutoAuth] Connexion automatique", ChatFormatting.GREEN, 4000);
-            }
-            // Détection du login
+                sendCommand(mc, "login " + currentPassword, "[AutoAuth] Connexion automatique", ChatFormatting.GREEN, 3000);
+
+                if(mc.getUser().getType() == User.Type.MSA) 
+                {
+                    LOGGER.info("Passage en premium pour la prochaine connexion.");
+                    sendCommand(mc, "premium", "[AutoAuth] Passage en premium", ChatFormatting.GOLD, 4500);
+                    sendCommand(mc, "premium", "[AutoAuth] Passage en premium (2/2)", ChatFormatting.GOLD, 6000);
+                }
+            } 
             else if (text.contains("/login")) {
                 LOGGER.info("Détection d'une demande de login. Envoi du mot de passe stocké.");
                 sendCommand(mc, "login " + currentPassword, "[AutoAuth] Connexion automatique", ChatFormatting.GREEN, 1500);
+
             } 
             
         });
@@ -75,8 +78,8 @@ public class AutoRegisterLoginPremiumClient implements ClientModInitializer {
                 mc.execute(() -> {
                     if (mc.player != null) {
                         mc.player.connection.sendCommand(command);
+                        mc.player.displayClientMessage(Component.literal("§7[AutoRegisterLoginPremium]" + command), false);
                         mc.player.displayClientMessage(Component.literal(feedback).withStyle(color), true);
-                        LOGGER.debug("Commande envoyée : /{}", command);
                     }
                 });
             } catch (InterruptedException e) {
